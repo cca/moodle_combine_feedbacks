@@ -85,7 +85,6 @@ for fdbk in feedbacks:
     service = 'mod_feedback_get_responses_analysis'
     # service = 'mod_feedback_get_analysis'
     params = {
-        # see https://moodle.cca.edu/admin/settings.php?section=webservicetokens
         'wstoken': conf['TOKEN'],
         'wsfunction': service,
         'moodlewsrestformat': format,
