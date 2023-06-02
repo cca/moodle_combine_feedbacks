@@ -1,3 +1,4 @@
+import csv
 import os
 
 from dotenv import dotenv_values
@@ -12,6 +13,27 @@ from requests import get, HTTPError
 # wsfunction: mod_feedback_get_analysis
 # we may also need to get course information & somehow add it to the feedback results
 # e.g. it might be important to know which program the internship was for
+
+
+def write_csv(feedback, id):
+    """ write a CSV of attempts given feedback attempts """
+    if len(feedback["attempts"]) == 0:
+        print(f"Feedback {id} has no attempts.")
+        return
+
+    filename = f"data/{id}-feedback.csv"
+    # extract column names from first response
+    column_labels = [response["name"] for response in feedback["attempts"][0]["responses"]]
+
+    with open(filename, mode="w") as file:
+        writer = csv.writer(file)
+        writer.writerow(column_labels)
+        for attempt in feedback["attempts"]:
+            row_values = [response["rawval"] for response in attempt["responses"]]
+            writer.writerow(row_values)
+
+    print(f"Wrote {filename}")
+
 
 conf = {
     **dotenv_values(".env"),  # load private env
@@ -60,8 +82,8 @@ feedbacks = data["feedbacks"]
 # @TODO we do not need _all_ feedbacks only employer info & student evaluation ones
 for fdbk in feedbacks:
     # see note in readme about the difference between these 2 functions
-    # service = 'mod_feedback_get_responses_analysis'
-    service = 'mod_feedback_get_analysis'
+    service = 'mod_feedback_get_responses_analysis'
+    # service = 'mod_feedback_get_analysis'
     params = {
         # see https://moodle.cca.edu/admin/settings.php?section=webservicetokens
         'wstoken': conf['TOKEN'],
@@ -101,5 +123,4 @@ for fdbk in feedbacks:
     #   "totalanonattempts": 0,
     #   "warnings": []
     # }
-
-    print(response.text)
+    write_csv(data, fdbk['id'])
