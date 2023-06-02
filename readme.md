@@ -6,25 +6,24 @@ Combine the data contained in multiple Feedback activities into one unified CSV.
 
 `poetry install` to get python dependencies.
 
-See Moodle's [Web Services Overview](https://moodle.cca.edu/admin/settings.php?section=webservicesoverview) for their outline of setting up an API user.
+See Moodle's [Web Services Overview](https://moodle.cca.edu/admin/settings.php?section=webservicesoverview) for their outline of setting up an API user. Normally, we would create a user of the "Web Services" authentication type, put it in the Web Services User role, and give that role the needed capabilities in the right context. However, after doing that, calls to the `mod_feedback_get_analysis` function still failed with a `required_capability_exception`. So below we use an account that is one of the site administrators.
 
-- Create a new user of "Web Services" authentication
-- Assign the user a Web Services User [System Role](https://moodle.cca.edu/admin/roles/assign.php?contextid=1)
 - Create a [custom service](https://moodle.cca.edu/admin/settings.php?section=externalservices) for the app
   - **Enabled** for **Authorized users only** and (under "more") **Can download files**
-  - **Required capabilities**: none [^1]
+  - **Required capabilities**: `mod/feedback:viewanalysepage`, `mod/feedback:view`, `mod/feedback:viewreports`, @TODO more
 - Add all necessary web service functions to the service (basically, every REST API endpoint the script calls)
   - There's a list of functions in the [API Documentation](https://moodle.cca.edu/admin/webservice/documentation.php)
   - @TODO function for category get courses
   - `mod_feedback_get_feedbacks_by_courses`
   - `mod_feedback_get_analysis`
-- Add the user created earlier as an authorized user of the new web service
-- Ensure the user has the required capabilities in whatever context is needed
-  - We put all Internships courses in one course category so we give the Web Services User role the `mod/feedback:viewanalysepage` and `mod/feedback:view` capabilities in that category
+  - `mod_feedback_get_responses_analysis`
+- Add a site admin user as an authorized user of the service
 - [Create a token](https://moodle.cca.edu/admin/webservice/tokens.php?action=create) for the user, select the service, optionally set an expiration date if prudent. You may need to jump to the final page of tokens to see the one you just created.
-- Copy example.env and paste the token value into it
+- Copy example.env to .env and paste the token value into it
 
-[^1]: While some capabilities under mod_feedback _are_ required, we don't want to add them to the Web Services User role globally if we don't have to. Instead, we do not require them for the service, and we override the WSU role in the context of the course category we're using later.
+## Two WS Functions
+
+@TODO Only one of `mod_feedback_get_analysis` or `mod_feedback_get_responses_analysis` is needed. The former gives a lot more information about how the questions are structured and then puts all responses in a `data` array under the question, while the latter is more focused on the response data, collecting all attempts into an array where each response contains the name of the field and two different values ("print" versus "raw"). It's highly likely we will want to use the second API and remove the first from the service. One notable difference: `get_analysis` doesn't actually link back to the user who submitted, while `get_responses_analysis` does (it gives us their ID and full name). We could chain the user id into a user profile API call to fill in more information about them.
 
 ## LICENSE
 

@@ -10,6 +10,8 @@ from requests import get, HTTPError
 # wsfunction: mod_feedback_get_feedbacks_by_courses
 # 3. iterate over feedbacks, get all their analyses
 # wsfunction: mod_feedback_get_analysis
+# we may also need to get course information & somehow add it to the feedback results
+# e.g. it might be important to know which program the internship was for
 
 conf = {
     **dotenv_values(".env"),  # load private env
@@ -28,7 +30,6 @@ params = {
 }
 
 response = get(conf['URL'], params=params)
-print(response.url)
 try:
     response.raise_for_status()
 except HTTPError:
@@ -37,7 +38,6 @@ except HTTPError:
     print(response.text)
 
 data = response.json()
-print(data)
 feedbacks = data["feedbacks"]
 # example feedback structure:
 # {
@@ -53,17 +53,14 @@ feedbacks = data["feedbacks"]
 #   "publish_stats": false,
 #   "completionsubmit": true,
 #   "coursemodule": 239207,
-#   "introfiles": [
-
-#   ]
+#   "introfiles": []
 # }
 
 # 3: get analyses
 # @TODO we do not need _all_ feedbacks only employer info & student evaluation ones
-# FIXME this doesn't work for some permissions reason, response JSON is:
-# {'exception': 'required_capability_exception', 'errorcode': 'nopermission', 'message': 'error/nopermission'}
 for fdbk in feedbacks:
-    # or is it mod_feedback_get_responses_analysis?
+    # see note in readme about the difference between these 2 functions
+    # service = 'mod_feedback_get_responses_analysis'
     service = 'mod_feedback_get_analysis'
     params = {
         # see https://moodle.cca.edu/admin/settings.php?section=webservicetokens
@@ -73,7 +70,6 @@ for fdbk in feedbacks:
         'feedbackid': fdbk['id']
     }
     response = get(conf['URL'], params=params)
-    print(response.url)
     try:
         response.raise_for_status()
     except HTTPError:
@@ -82,4 +78,28 @@ for fdbk in feedbacks:
         print(response.text)
 
     data = response.json()
-    print(data)
+    # example analysis structure:
+    # {
+    #   "attempts": [
+    #     {
+    #       "id": 5817,
+    #       "courseid": 0,
+    #       "userid": 11,
+    #       "timemodified": 1683236827,
+    #       "fullname": "Rey .",
+    #       "responses": [
+    #         {
+    #           "id": 10490,
+    #           "name": "Your Phone Number",
+    #           "printval": "323-123-9876",
+    #           "rawval": "323-123-9876"
+    #         },
+    #   ...objects for each question, below is end of "attempts" array
+    #   ],
+    #   "totalattempts": 1,
+    #   "anonattempts": [],
+    #   "totalanonattempts": 0,
+    #   "warnings": []
+    # }
+
+    print(response.text)
