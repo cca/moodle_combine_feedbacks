@@ -74,8 +74,31 @@ def get_courses():
 
 
 def write_csv(feedbacks, label):
+    """write feedbacks to a CSV file
+
+    Args:
+        feedbacks (list[dict]): list of feedback dicts with responses stored in anonattempts property
+        label (str): label to use in the filename
+    """
     filename = f"data/{label}-responses.csv"
-    # extract columns from first response to first feedback, see get_feedbacks for structure
+    # example attempts structure:
+    #   "anonattempts": [
+    #     {
+    #       "id": 5817,
+    #       "courseid": 0,
+    #       "userid": 11,
+    #       "timemodified": 1683236827,
+    #       "fullname": "Rey .",
+    #       "responses": [
+    #         {
+    #           "id": 10490,
+    #           "name": "Your Phone Number",
+    #           "printval": "323-123-9876",
+    #           "rawval": "323-123-9876"
+    #         },
+    #   ...objects for each question, below is end of "attempts" array
+    #   ],
+    # extract columns from first response to first feedback
     columns = [
         # find (label) and extract it from parentheses
         re.match("^\(.*\)", r["name"].strip())[0][1:-1]
@@ -88,8 +111,14 @@ def write_csv(feedbacks, label):
         writer.writerow(columns)
         for feedback in feedbacks:
             for attempt in feedback["anonattempts"]:
-                row_values = [response["rawval"] for response in attempt["responses"]]
-                writer.writerow(row_values)
+                # use the "printval" property for Connection question, rawval for others
+                row = []
+                for response in attempt["responses"]:
+                    if re.match("\(connection\)", response["name"].lower()):
+                        row.append(response["printval"])
+                    else:
+                        row.append(response["rawval"])
+                writer.writerow(row)
 
     debug(f"Wrote {filename}")
 
@@ -167,6 +196,26 @@ def get_feedbacks(courses):
     return feedbacks
 
 
+def feedback_type(feedback):
+    """classify feedback as either an internship information or evaluation activity, or neither
+    the returned string must match the name of the list in get_responses that it's appended to
+
+    Args:
+        feedback (dict): feedback dict with name property
+
+    Returns:
+        str|None: either "internships", "evaluations", or None
+    """
+    # trim whitespace and lowercase for easier matching
+    name = feedback["name"].lower().strip()
+    if "submit employer and intern information" in name:
+        return "internships"
+    elif "evaluation" in name:
+        return "evaluations"
+    else:
+        return None
+
+
 # 3: get analyses
 def get_responses(feedbacks):
     """given a list of feedback activities, return two lists of responses:
@@ -182,57 +231,41 @@ def get_responses(feedbacks):
     internships = []
     evaluations = []
     for fdbk in feedbacks:
-        # see note in readme about the difference between these 2 functions
-        service = "mod_feedback_get_responses_analysis"
-        # service = 'mod_feedback_get_analysis'
-        format = "json"
-        params = {
-            "wstoken": conf["TOKEN"],
-            "wsfunction": service,
-            "moodlewsrestformat": format,
-            "feedbackid": fdbk["id"],
-        }
-        response = get(conf["URL"], params=params)
-        try:
-            response.raise_for_status()
-        except HTTPError:
-            http_error(response)
+        # skip feedbacks that aren't internships or evaluations
+        type = feedback_type(fdbk)
+        if type:
+            # see note in readme about the difference between these 2 functions
+            service = "mod_feedback_get_responses_analysis"
+            # service = 'mod_feedback_get_analysis'
+            format = "json"
+            params = {
+                "wstoken": conf["TOKEN"],
+                "wsfunction": service,
+                "moodlewsrestformat": format,
+                "feedbackid": fdbk["id"],
+            }
+            response = get(conf["URL"], params=params)
+            try:
+                response.raise_for_status()
+            except HTTPError:
+                http_error(response)
 
-        data = response.json()
-        # TODO handle warnings array & check for its presence in other wsfunction data
-        # example analysis structure:
-        # {
-        #   "attempts": []
-        #   "totalattempts": 0,
-        #   "anonattempts": [
-        #     {
-        #       "id": 5817,
-        #       "courseid": 0,
-        #       "userid": 11,
-        #       "timemodified": 1683236827,
-        #       "fullname": "Rey .",
-        #       "responses": [
-        #         {
-        #           "id": 10490,
-        #           "name": "Your Phone Number",
-        #           "printval": "323-123-9876",
-        #           "rawval": "323-123-9876"
-        #         },
-        #   ...objects for each question, below is end of "attempts" array
-        #   ],
-        #   "totalanonattempts": 10,
-        #   "warnings": []
-        # }
-        debug(
-            f'{len(data["anonattempts"])} attempts on Feedback {fdbk["id"]} {conf["DOMAIN"] + "/mod/feedback/show_entries.php?id=" + str(fdbk["coursemodule"])}'
-        )
-        if data["totalanonattempts"] > 0:
-            # trim whitespace and lowercase for easier matching
-            name = fdbk["name"].lower().strip()
-            if "submit employer and intern information" in name:
-                internships.append(data)
-            elif "evaluation" in name:
-                evaluations.append(data)
+            data = response.json()
+            # TODO handle warnings array & check for its presence in other wsfunction data
+            # example analysis structure:
+            # {
+            #   "attempts": []
+            #   "totalattempts": 0,
+            #   "anonattempts": [...],
+            #   "totalanonattempts": 10,
+            #   "warnings": []
+            # }
+            debug(
+                f'{len(data["anonattempts"])} attempts on Feedback {fdbk["id"]} {conf["DOMAIN"] + "/mod/feedback/show_entries.php?id=" + str(fdbk["coursemodule"])}'
+            )
+
+            if data["totalanonattempts"] > 0:
+                locals()[type].append(data)
 
     return internships, evaluations
 
