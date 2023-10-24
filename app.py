@@ -30,8 +30,19 @@ def debug(s):
         print(s)
 
 
+def http_error(resp):
+    print(f"HTTP Error {resp.status_code}")
+    print(resp.headers)
+    print(resp.text)
+
+
 # 1 get courses
 def get_courses():
+    """get all courses in the Internships category
+
+    Returns:
+        list[dict]: list of course dicts
+    """
     service = "core_course_get_courses_by_field"
     format = "json"
     params = {
@@ -47,9 +58,7 @@ def get_courses():
     try:
         response.raise_for_status()
     except HTTPError:
-        print(f"HTTP Error {response.status_code}")
-        print(response.headers)
-        print(response.text)
+        http_error(response)
 
     data = response.json()
     debug(
@@ -95,12 +104,18 @@ def course_ids(courses):
 
 # 2: get feedbacks
 def get_feedbacks(courses):
+    """given a list of courses, return the feedback activities within them
+
+    Args:
+        courses (list[dict]): list of course dicts containing at least an id property
+
+    Returns:
+        list[dict]: list of feedback activity dicts
+    """
     ids = course_ids(courses)
 
     service = "mod_feedback_get_feedbacks_by_courses"
     format = "json"
-    # ! this doesn't work, "Access control exception", but my token has all the necessary permissions
-    # ! maybe because of the courseids param formatting?
     params = {
         # see https://moodle.cca.edu/admin/settings.php?section=webservicetokens
         "wstoken": conf["TOKEN"],
@@ -110,7 +125,8 @@ def get_feedbacks(courses):
     }
     # each course id is its own URL parameter, weird PHP behavior
     # ! there is probably a potential bug here where many courses -> too long URL
-    # ! URLs can be 2048 chars and getting 2 courses is only 200 so maybe not
+    # ! URLs can be 2048 chars and getting 2 courses is only ≈200 so maybe not
+    # ! also unclear if Moodle has a limit on the number of feedbacks it returns
     for idx, id in enumerate(ids):
         params[f"courseids[{idx}]"] = id
 
@@ -118,9 +134,7 @@ def get_feedbacks(courses):
     try:
         response.raise_for_status()
     except HTTPError:
-        print(f"HTTP Error {response.status_code}")
-        print(response.headers)
-        print(response.text)
+        http_error()
 
     data = response.json()
     feedbacks = data.get("feedbacks", [])
@@ -192,7 +206,9 @@ def get_responses(feedbacks):
         #   "warnings": []
         # }
         # TODO return feedback, don't write csv
-        debug(f'{len(data["anonattempts"])} attempts on Feedback {fdbk["id"]}')
+        debug(
+            f'{len(data["anonattempts"])} attempts on Feedback {fdbk["id"]} {conf["DOMAIN"] + "/mod/feedback/show_entries.php?id=" + str(fdbk["coursemodule"])}'
+        )
         if data["totalanonattempts"] > 0:
             write_csv(data, fdbk["id"])
 
