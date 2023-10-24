@@ -11,19 +11,19 @@ from requests import get, HTTPError
 # wsfunction: mod_feedback_get_feedbacks_by_courses
 # 3. iterate over feedbacks, get all their analyses
 # wsfunction: mod_feedback_get_analysis
-# we may also need to get course information & somehow add it to the feedback results
-# e.g. it might be important to know which program the internship was for
 
 
 def write_csv(feedback, id):
-    """ write a CSV of attempts given feedback attempts """
+    """write a CSV of attempts given feedback attempts"""
     if len(feedback["attempts"]) == 0:
         print(f"Feedback {id} has no attempts.")
         return
 
     filename = f"data/{id}-feedback.csv"
     # extract column names from first response
-    column_labels = [response["name"] for response in feedback["attempts"][0]["responses"]]
+    column_labels = [
+        response["name"] for response in feedback["attempts"][0]["responses"]
+    ]
 
     with open(filename, mode="w") as file:
         writer = csv.writer(file)
@@ -41,21 +41,21 @@ conf = {
 }
 
 # 2: get feedbacks
-service = 'mod_feedback_get_feedbacks_by_courses'
-format = 'json'
+service = "mod_feedback_get_feedbacks_by_courses"
+format = "json"
 params = {
     # see https://moodle.cca.edu/admin/settings.php?section=webservicetokens
-    'wstoken': conf['TOKEN'],
-    'wsfunction': service,
-    'moodlewsrestformat': format,
-    'courseids[]': 5204
+    "wstoken": conf["TOKEN"],
+    "wsfunction": service,
+    "moodlewsrestformat": format,
+    "courseids[]": 5204,
 }
 
-response = get(conf['URL'], params=params)
+response = get(conf["URL"], params=params)
 try:
     response.raise_for_status()
 except HTTPError:
-    print(f'HTTP Error {response.status_code}')
+    print(f"HTTP Error {response.status_code}")
     print(response.headers)
     print(response.text)
 
@@ -82,19 +82,19 @@ feedbacks = data["feedbacks"]
 # @TODO we do not need _all_ feedbacks only employer info & student evaluation ones
 for fdbk in feedbacks:
     # see note in readme about the difference between these 2 functions
-    service = 'mod_feedback_get_responses_analysis'
+    service = "mod_feedback_get_responses_analysis"
     # service = 'mod_feedback_get_analysis'
     params = {
-        'wstoken': conf['TOKEN'],
-        'wsfunction': service,
-        'moodlewsrestformat': format,
-        'feedbackid': fdbk['id']
+        "wstoken": conf["TOKEN"],
+        "wsfunction": service,
+        "moodlewsrestformat": format,
+        "feedbackid": fdbk["id"],
     }
-    response = get(conf['URL'], params=params)
+    response = get(conf["URL"], params=params)
     try:
         response.raise_for_status()
     except HTTPError:
-        print(f'HTTP Error {response.status_code}')
+        print(f"HTTP Error {response.status_code}")
         print(response.headers)
         print(response.text)
 
@@ -122,4 +122,4 @@ for fdbk in feedbacks:
     #   "totalanonattempts": 0,
     #   "warnings": []
     # }
-    write_csv(data, fdbk['id'])
+    write_csv(data, fdbk["id"])

@@ -5,7 +5,6 @@ description = "combine results from multiple Moodle Feedback activities"
 authors = ["phette23 <phette23@gmail.com>"]
 license = "ECL-2.0"
 readme = "README.md"
-packages = [{include = "combine_feedbacks"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
