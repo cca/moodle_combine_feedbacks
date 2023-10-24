@@ -60,21 +60,16 @@ def get_courses():
 
 
 def write_csv(feedback, id):
-    """write a CSV of attempts given feedback attempts"""
-    if len(feedback["attempts"]) == 0:
-        print(f"Feedback {id} has no attempts.")
-        return
-
     filename = f"data/{id}-feedback.csv"
-    # extract column names from first response, see get_feedbacks for structure info
+    # extract column names from first response, see get_feedbacks for structure
     column_labels = [
-        response["name"] for response in feedback["attempts"][0]["responses"]
+        response["name"] for response in feedback["anonattempts"][0]["responses"]
     ]
 
     with open(filename, mode="w") as file:
         writer = csv.writer(file)
         writer.writerow(column_labels)
-        for attempt in feedback["attempts"]:
+        for attempt in feedback["anonattempts"]:
             row_values = [response["rawval"] for response in attempt["responses"]]
             writer.writerow(row_values)
 
@@ -175,7 +170,9 @@ def get_responses(feedbacks):
         # TODO handle warnings array & check for its presence in other wsfunction data
         # example analysis structure:
         # {
-        #   "attempts": [
+        #   "attempts": []
+        #   "totalattempts": 0,
+        #   "anonattempts": [
         #     {
         #       "id": 5817,
         #       "courseid": 0,
@@ -191,14 +188,12 @@ def get_responses(feedbacks):
         #         },
         #   ...objects for each question, below is end of "attempts" array
         #   ],
-        #   "totalattempts": 1,
-        #   "anonattempts": [],
-        #   "totalanonattempts": 0,
+        #   "totalanonattempts": 10,
         #   "warnings": []
         # }
         # TODO return feedback, don't write csv
-        debug(f'{len(data["attempts"])} attempts on Feedback {fdbk["id"]}')
-        if len(data["attempts"]) > 0:
+        debug(f'{len(data["anonattempts"])} attempts on Feedback {fdbk["id"]}')
+        if data["totalanonattempts"] > 0:
             write_csv(data, fdbk["id"])
 
 
