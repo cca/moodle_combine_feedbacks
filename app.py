@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 
 from dotenv import dotenv_values
 from requests import get, HTTPError
@@ -31,6 +32,11 @@ def debug(s):
 
 
 def http_error(resp):
+    """print HTTP error details
+
+    Args:
+        resp (Response): HTTP response object from requests library
+    """
     print(f"HTTP Error {resp.status_code}")
     print(resp.headers)
     print(resp.text)
@@ -64,23 +70,26 @@ def get_courses():
     debug(
         f'Found {len(data["courses"])} courses in category {conf["DOMAIN"]}/course/management.php?categoryid={conf["CATEGORY"]}'
     )
-    # ? does it matter if we return full course objects or just IDs?
     return data["courses"]
 
 
-def write_csv(feedback, id):
-    filename = f"data/{id}-feedback.csv"
-    # extract column names from first response, see get_feedbacks for structure
-    column_labels = [
-        response["name"] for response in feedback["anonattempts"][0]["responses"]
+def write_csv(feedbacks, label):
+    filename = f"data/{label}-responses.csv"
+    # extract columns from first response to first feedback, see get_feedbacks for structure
+    columns = [
+        # find (label) and extract it from parentheses
+        re.match("^\(.*\)", r["name"].strip())[0][1:-1]
+        for r in feedbacks[0]["anonattempts"][0]["responses"]
     ]
 
+    # TODO use DictWriter instead? We want to be careful not to place the wrong values in a column
     with open(filename, mode="w") as file:
         writer = csv.writer(file)
-        writer.writerow(column_labels)
-        for attempt in feedback["anonattempts"]:
-            row_values = [response["rawval"] for response in attempt["responses"]]
-            writer.writerow(row_values)
+        writer.writerow(columns)
+        for feedback in feedbacks:
+            for attempt in feedback["anonattempts"]:
+                row_values = [response["rawval"] for response in attempt["responses"]]
+                writer.writerow(row_values)
 
     debug(f"Wrote {filename}")
 
@@ -134,7 +143,7 @@ def get_feedbacks(courses):
     try:
         response.raise_for_status()
     except HTTPError:
-        http_error()
+        http_error(response)
 
     data = response.json()
     feedbacks = data.get("feedbacks", [])
@@ -160,7 +169,18 @@ def get_feedbacks(courses):
 
 # 3: get analyses
 def get_responses(feedbacks):
-    # TODO we do not need _all_ feedbacks only employer info & student evaluation ones
+    """given a list of feedback activities, return two lists of responses:
+    1. internship information ("Employer and Intern Information" feedbacks)
+    2. student evaluations ("Evaluation" feedbacks)
+
+    Args:
+        feedbacks (list[dict]): list of feeedback activity dicts
+
+    Returns:
+        list[dict], list[dict]: list of internship responses, list of evaluation responses
+    """
+    internships = []
+    evaluations = []
     for fdbk in feedbacks:
         # see note in readme about the difference between these 2 functions
         service = "mod_feedback_get_responses_analysis"
@@ -176,9 +196,7 @@ def get_responses(feedbacks):
         try:
             response.raise_for_status()
         except HTTPError:
-            print(f"HTTP Error {response.status_code}")
-            print(response.headers)
-            print(response.text)
+            http_error(response)
 
         data = response.json()
         # TODO handle warnings array & check for its presence in other wsfunction data
@@ -205,16 +223,23 @@ def get_responses(feedbacks):
         #   "totalanonattempts": 10,
         #   "warnings": []
         # }
-        # TODO return feedback, don't write csv
         debug(
             f'{len(data["anonattempts"])} attempts on Feedback {fdbk["id"]} {conf["DOMAIN"] + "/mod/feedback/show_entries.php?id=" + str(fdbk["coursemodule"])}'
         )
         if data["totalanonattempts"] > 0:
-            write_csv(data, fdbk["id"])
+            # trim whitespace and lowercase for easier matching
+            name = fdbk["name"].lower().strip()
+            if "submit employer and intern information" in name:
+                internships.append(data)
+            elif "evaluation" in name:
+                evaluations.append(data)
+
+    return internships, evaluations
 
 
 if __name__ == "__main__":
     courses = get_courses()
     feedbacks = get_feedbacks(courses)
-    responses = get_responses(feedbacks)
-    # ? how do we combine responses? hydrate each response with link to course/feedback it comes from?
+    internships, evaluations = get_responses(feedbacks)
+    write_csv(internships, "internships")
+    write_csv(evaluations, "evaluations")
