@@ -17,6 +17,7 @@ conf = {
     **dotenv_values(".env"),  # load private env
     **os.environ,  # override loaded values with environment variables
 }
+conf["URL"] = conf["DOMAIN"] + "/webservice/rest/server.php"
 
 
 def debug(s):
@@ -51,6 +52,9 @@ def get_courses():
         print(response.text)
 
     data = response.json()
+    debug(
+        f'Found {len(data["courses"])} courses in category {conf["DOMAIN"]}/course/management.php?categoryid={conf["CATEGORY"]}'
+    )
     # ? does it matter if we return full course objects or just IDs?
     return data["courses"]
 
@@ -74,7 +78,7 @@ def write_csv(feedback, id):
             row_values = [response["rawval"] for response in attempt["responses"]]
             writer.writerow(row_values)
 
-    print(f"Wrote {filename}")
+    debug(f"Wrote {filename}")
 
 
 def course_ids(courses):
@@ -113,7 +117,7 @@ def get_feedbacks(courses):
     # ! there is probably a potential bug here where many courses -> too long URL
     # ! URLs can be 2048 chars and getting 2 courses is only 200 so maybe not
     for idx, id in enumerate(ids):
-        params[f"courseids[${idx}]"] = id
+        params[f"courseids[{idx}]"] = id
 
     response = get(conf["URL"], params=params)
     try:
@@ -124,7 +128,7 @@ def get_feedbacks(courses):
         print(response.text)
 
     data = response.json()
-    feedbacks = data["feedbacks"]
+    feedbacks = data.get("feedbacks", [])
     # example feedback structure:
     # {
     #   "id": 1520,
@@ -134,13 +138,14 @@ def get_feedbacks(courses):
     #   "introformat": 1,
     #   "anonymous": 2,
     #   "multiple_submit": false,
-    #   "autonumbering": false,
+    #   "autonumbering": f  alse,
     #   "page_after_submitformat": 1,
     #   "publish_stats": false,
     #   "completionsubmit": true,
     #   "coursemodule": 239207,
     #   "introfiles": []
     # }
+    debug(f"Found {len(feedbacks)} Feedback activities")
     return feedbacks
 
 
@@ -151,6 +156,7 @@ def get_responses(feedbacks):
         # see note in readme about the difference between these 2 functions
         service = "mod_feedback_get_responses_analysis"
         # service = 'mod_feedback_get_analysis'
+        format = "json"
         params = {
             "wstoken": conf["TOKEN"],
             "wsfunction": service,
@@ -191,6 +197,7 @@ def get_responses(feedbacks):
         #   "warnings": []
         # }
         # TODO return feedback, don't write csv
+        debug(f'{len(data["attempts"])} attempts on Feedback {fdbk["id"]}')
         if len(data["attempts"]) > 0:
             write_csv(data, fdbk["id"])
 
