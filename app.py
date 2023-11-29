@@ -1,5 +1,6 @@
 import csv
 from datetime import date
+from html import unescape
 import os
 import re
 
@@ -121,10 +122,10 @@ def write_csv(feedbacks, label):
                 # use the "printval" property for Connection question, rawval for others
                 row = []
                 for response in attempt["responses"]:
-                    if re.match("(connection)", response["name"].lower()):
-                        row.append(response["printval"])
+                    if re.match(r"\(connection\)", response["name"].lower()):
+                        row.append(unescape(response["printval"]))
                     else:
-                        row.append(response["rawval"])
+                        row.append(unescape(response["rawval"]))
                 writer.writerow(row)
 
     debug(
