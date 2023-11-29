@@ -1,4 +1,5 @@
 import csv
+from datetime import date
 import os
 import re
 
@@ -27,6 +28,7 @@ def debug(s):
     Args:
         s (str): message to print
     """
+    # can't just .get() because the string "False" is truthy
     if conf.get("DEBUG") and bool(conf["DEBUG"]):
         print(s)
 
@@ -43,7 +45,7 @@ def http_error(resp):
 
 
 # 1 get courses
-def get_courses():
+def get_courses() -> list[dict]:
     """get all courses in the Internships category
 
     Returns:
@@ -99,11 +101,16 @@ def write_csv(feedbacks, label):
     #   ...objects for each question, below is end of "attempts" array
     #   ],
     # extract columns from first response to first feedback
-    columns = [
+    columns = []
+    for r in feedbacks[0]["anonattempts"][0]["responses"]:
         # find (label) and extract it from parentheses
-        re.match("^\(.*\)", r["name"].strip())[0][1:-1]
-        for r in feedbacks[0]["anonattempts"][0]["responses"]
-    ]
+        label_matches = re.match(r"^\(.*\)", r["name"].strip())
+        if label_matches:
+            columns.append(label_matches[0][1:-1])
+        else:
+            raise Exception(
+                f"No label for question '{r['name']}' in feedback {feedbacks[0]['id']} in course {feedbacks[0]['courseid']}"
+            )
 
     # TODO use DictWriter instead? We want to be careful not to place the wrong values in a column
     with open(filename, mode="w") as file:
@@ -114,16 +121,18 @@ def write_csv(feedbacks, label):
                 # use the "printval" property for Connection question, rawval for others
                 row = []
                 for response in attempt["responses"]:
-                    if re.match("\(connection\)", response["name"].lower()):
+                    if re.match("(connection)", response["name"].lower()):
                         row.append(response["printval"])
                     else:
                         row.append(response["rawval"])
                 writer.writerow(row)
 
-    debug(f"Wrote {filename}")
+    debug(
+        f"Wrote {sum([len(f['anonattempts']) for f in feedbacks])} responses to {filename}"
+    )
 
 
-def course_ids(courses):
+def course_ids(courses) -> list[str]:
     """return list of course ids from list of courses, skip ignored courses
 
     Args:
@@ -141,7 +150,7 @@ def course_ids(courses):
 
 
 # 2: get feedbacks
-def get_feedbacks(courses):
+def get_feedbacks(courses) -> list[dict]:
     """given a list of courses, return the feedback activities within them
 
     Args:
@@ -217,7 +226,7 @@ def feedback_type(feedback):
 
 
 # 3: get analyses
-def get_responses(feedbacks):
+def get_responses(feedbacks) -> tuple[list[dict], list[dict]]:
     """given a list of feedback activities, return two lists of responses:
     1. internship information ("Employer and Intern Information" feedbacks)
     2. student evaluations ("Evaluation" feedbacks)
@@ -274,5 +283,5 @@ if __name__ == "__main__":
     courses = get_courses()
     feedbacks = get_feedbacks(courses)
     internships, evaluations = get_responses(feedbacks)
-    write_csv(internships, "internships")
-    write_csv(evaluations, "evaluations")
+    write_csv(internships, f"{date.today().isoformat()}-internships")
+    write_csv(evaluations, f"{date.today().isoformat()}-evaluations")
