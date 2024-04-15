@@ -5,9 +5,10 @@ description = "combine results from multiple Moodle Feedback activities"
 authors = ["phette23 <phette23@gmail.com>"]
 license = "ECL-2.0"
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11"
 requests = "^2.31.0"
 python-dotenv = "^1.0.0"
 
