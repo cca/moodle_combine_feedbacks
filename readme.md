@@ -4,7 +4,7 @@ Combine the data contained in multiple Feedback activities into a unified CSV. F
 
 ## Moodle Web Services Setup
 
-`poetry install` to get python dependencies.
+`uv sync` to get python dependencies.
 
 See Moodle's [Web Services Overview](https://moodle.cca.edu/admin/settings.php?section=webservicesoverview) for their outline of setting up an API user. Normally, we would create a user of the "Web Services" authentication type, put it in the Web Services User role, and give that role the needed capabilities in the right context. However, after doing that, calls to the `mod_feedback_get_analysis` function still failed with a `required_capability_exception`. So below we use an account that is one of the site administrators.
 
@@ -22,7 +22,7 @@ See Moodle's [Web Services Overview](https://moodle.cca.edu/admin/settings.php?s
 
 ## Usage
 
-If you have configured the .env file as instructed above, simply `poetry run python app.py` collates feedbacks from all courses in the Internships category and outputs CSV files. If you want to test feedback responses from a single course, you can edit app.py like so:
+If you have configured the .env file as instructed above, simply `uv run python app.py` collates feedbacks from all courses in the Internships category and outputs CSV files. If you want to test feedback responses from a single course, you can edit app.py like so:
 
 ```python
 if __name__ == "__main__":
